@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Global Styles === */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.3);
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.5);
+}
+
+/* === Glass Effect === */
+@layer utilities {
+  .glass {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(124, 58, 237, 0.1);
+  }
+
+  .glass-card {
+    background: rgba(30, 41, 59, 0.5);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(124, 58, 237, 0.08);
+  }
+
+  .glass-hover:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(124, 58, 237, 0.2);
+  }
+
+  .gradient-brand {
+    background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #3b82f6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-brand {
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.15), 0 0 40px rgba(124, 58, 237, 0.05);
+  }
+}
+
+/* === Transitions === */
+body {
+  transition: background-color 0.3s ease;
+}
+
+a, button {
+  transition: all 0.2s ease;
+}
