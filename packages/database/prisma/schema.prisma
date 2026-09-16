@@ -149,6 +149,8 @@ model Restock {
   priceFrom       Float
   imageUrl        String?
   accountCount    Int
+  // JSON array: [{ name: string, price: number, stock: number }]
+  variants        Json?
   
   // Relations
   creator         User             @relation(fields: [creatorId], references: [id])
@@ -183,7 +185,7 @@ model Log {
   userId          String?
   
   createdAt       DateTime   @default(now())
-
+  
   @@index([action])
   @@index([createdAt])
   @@map("logs")
@@ -197,6 +199,6 @@ model Setting {
   
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
-
+  
   @@map("settings")
 }
