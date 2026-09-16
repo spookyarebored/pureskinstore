@@ -73,17 +73,17 @@ export async function sendRestockEmbed(data: {
   if (data.variants?.length) {
     for (const variant of data.variants) {
       embed.addFields(
-        { name: 'Variant', value: variant.name || 'Sans nom', inline: false },
-        { name: 'Price', value: `$${variant.price.toFixed(2)}`, inline: true },
-        { name: 'Stock', value: String(variant.stock), inline: true },
+        { name: '**Variant**', value: variant.name || 'Sans nom', inline: false },
+        { name: '**Price**', value: `$${variant.price.toFixed(2)}`, inline: true },
+        { name: '**Stock**', value: String(variant.stock), inline: true },
         { name: '\u200b', value: '\u200b', inline: true },
       );
     }
   } else {
     embed.addFields(
-      { name: 'Variant', value: 'Fortnite Accounts', inline: false },
-      { name: 'Price', value: `$${data.priceFrom.toFixed(2)}`, inline: true },
-      { name: 'Stock', value: String(data.accountCount), inline: true },
+      { name: '**Variant**', value: 'Fortnite Accounts', inline: false },
+      { name: '**Price**', value: `$${data.priceFrom.toFixed(2)}`, inline: true },
+      { name: '**Stock**', value: String(data.accountCount), inline: true },
       { name: '\u200b', value: '\u200b', inline: true },
     );
   }
@@ -101,7 +101,12 @@ export async function sendRestockEmbed(data: {
       .setStyle(ButtonStyle.Success)
   );
 
-  const message = await channel.send({ embeds: [embed], components: [button] });
+  const message = await channel.send({
+    content: '@everyone',
+    embeds: [embed],
+    components: [button],
+    allowedMentions: { parse: ['everyone'] },
+  });
   return message.id;
 }
 
