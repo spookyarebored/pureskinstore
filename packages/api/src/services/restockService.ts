@@ -4,12 +4,12 @@
 
 import { prisma } from '@pureskin/database';
 
-/**
- * Create a restock entry
- *
- * A restock now stores the number of available accounts rather than
- * requiring individual account IDs / RestockAccount relations.
- */
+type RestockVariant = {
+  name: string;
+  price: number;
+  stock: number;
+};
+
 export async function createRestock(data: {
   channelId: string;
   title?: string;
@@ -17,6 +17,7 @@ export async function createRestock(data: {
   priceFrom: number;
   imageUrl?: string;
   accountCount: number;
+  variants: RestockVariant[];
   creatorId: string;
   messageId?: string;
 }) {
@@ -28,6 +29,7 @@ export async function createRestock(data: {
       priceFrom: data.priceFrom,
       imageUrl: data.imageUrl,
       accountCount: data.accountCount,
+      variants: data.variants,
       creatorId: data.creatorId,
       messageId: data.messageId,
     },
@@ -37,18 +39,12 @@ export async function createRestock(data: {
   });
 }
 
-/**
- * Get the current number of available accounts.
- */
 export async function getAvailableAccountCount() {
   return prisma.account.count({
     where: { status: 'AVAILABLE' },
   });
 }
 
-/**
- * Get restock history
- */
 export async function getRestocks(params: { page?: number; limit?: number }) {
   const page = params.page || 1;
   const limit = params.limit || 25;
@@ -75,9 +71,6 @@ export async function getRestocks(params: { page?: number; limit?: number }) {
   };
 }
 
-/**
- * Get restock stats (last 30 days)
- */
 export async function getRestockStats() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -88,7 +81,6 @@ export async function getRestockStats() {
     orderBy: { createdAt: 'asc' },
   });
 
-  // Group by date
   const grouped: Record<string, number> = {};
   for (const r of restocks) {
     const date = r.createdAt.toISOString().split('T')[0];
