@@ -16,6 +16,12 @@ import { COLORS } from '@pureskin/shared';
 
 const router = Router();
 
+const variantSchema = z.object({
+  name: z.string().min(1).max(200),
+  price: z.number().min(0),
+  stock: z.number().int().min(0),
+});
+
 const createRestockSchema = z.object({
   channelId: z.string().min(1),
   title: z.string().max(200).optional(),
@@ -23,12 +29,9 @@ const createRestockSchema = z.object({
   priceFrom: z.number().min(0),
   imageUrl: z.string().url().optional().or(z.literal('')),
   accountCount: z.number().int().min(1),
+  variants: z.array(variantSchema).min(1),
 });
 
-/**
- * POST /api/restock
- * Create and send a restock to Discord
- */
 router.post(
   '/',
   authenticate,
@@ -37,19 +40,18 @@ router.post(
   validateBody(createRestockSchema),
   async (req: Request, res: Response) => {
     try {
-      const { channelId, title, description, priceFrom, imageUrl, accountCount } = req.body;
+      const { channelId, title, description, priceFrom, imageUrl, accountCount, variants } = req.body;
 
-      // Send Discord embed
       const messageId = await discordService.sendRestockEmbed({
         channelId,
-        title: title || 'NOUVEAU RESTOCK',
+        title: title || 'FA Fortnite Accounts Restocked',
         description,
         priceFrom,
         accountCount,
         imageUrl: imageUrl || undefined,
+        variants,
       });
 
-      // Save restock to database
       const restock = await restockService.createRestock({
         channelId,
         title,
@@ -57,31 +59,30 @@ router.post(
         priceFrom,
         imageUrl: imageUrl || undefined,
         accountCount,
+        variants,
         creatorId: req.user!.userId,
         messageId: messageId || undefined,
       });
 
-      // Log
       await createLog({
         action: 'RESTOCK_SENT',
         userId: req.user!.userId,
         details: {
           restockId: restock.id,
           accountCount,
+          variants,
           priceFrom,
           channelId,
         },
         ipAddress: req.ip,
       });
 
-      // Discord log
       await discordService.sendLogToDiscord({
         title: '📦 Restock envoyé',
-        description: `**${accountCount}** comptes • À partir de **${priceFrom}€**\nPar <@${req.user!.discordId}>`,
+        description: `**${variants.length}** variante(s) • **${accountCount}** comptes • À partir de **${priceFrom}€**\nPar <@${req.user!.discordId}>`,
         color: COLORS.RESTOCK,
       });
 
-      // WebSocket notification
       const io = getIO();
       if (io) io.emit('restock:sent', restock);
 
@@ -93,10 +94,6 @@ router.post(
   }
 );
 
-/**
- * GET /api/restock/available-count
- * Get the current number of available accounts.
- */
 router.get('/available-count', authenticate, requireOwner, async (_req: Request, res: Response) => {
   try {
     const count = await restockService.getAvailableAccountCount();
@@ -107,10 +104,6 @@ router.get('/available-count', authenticate, requireOwner, async (_req: Request,
   }
 });
 
-/**
- * GET /api/restock
- * Get restock history
- */
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const { page, limit } = req.query;
