@@ -4,7 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Send, RefreshCw, Package, Eye } from 'lucide-react';
+import { Send, RefreshCw, Package, Eye, Plus, Trash2 } from 'lucide-react';
 import Header from '../components/layout/Header';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -18,6 +18,14 @@ interface Channel {
   name: string;
 }
 
+interface Variant {
+  name: string;
+  price: string;
+  stock: string;
+}
+
+const emptyVariant = (): Variant => ({ name: '', price: '', stock: '' });
+
 export default function RestockPage() {
   const { onMenuToggle } = useOutletContext<{ onMenuToggle: () => void }>();
   const toast = useToast();
@@ -29,12 +37,14 @@ export default function RestockPage() {
 
   const [form, setForm] = useState({
     channelId: '',
-    title: 'NOUVEAU RESTOCK',
-    description: 'De nouveaux comptes sont disponibles !',
-    priceFrom: '',
+    title: 'FA Fortnite Accounts Restocked',
+    description: 'Our product **FA Fortnite Accounts** has just been restocked!',
     imageUrl: '',
-    accountCount: '',
   });
+
+  const [variants, setVariants] = useState<Variant[]>([
+    { name: '50–100 Skins [ OG Outfits Included ] | Fortnite Accounts', price: '', stock: '' },
+  ]);
 
   const fetchData = async () => {
     try {
@@ -44,11 +54,7 @@ export default function RestockPage() {
       ]);
 
       if (channelsRes.success) setChannels(channelsRes.data);
-      if (countRes.success) {
-        const count = countRes.data.count;
-        setAccountCount(count);
-        setForm((prev) => ({ ...prev, accountCount: String(count) }));
-      }
+      if (countRes.success) setAccountCount(countRes.data.count);
     } catch {
       toast.error('Erreur lors du chargement des données');
     } finally {
@@ -60,15 +66,67 @@ export default function RestockPage() {
     fetchData();
   }, []);
 
+  const totalVariantStock = variants.reduce((sum, variant) => {
+    const stock = parseInt(variant.stock, 10);
+    return sum + (Number.isFinite(stock) && stock > 0 ? stock : 0);
+  }, 0);
+
+  const priceFrom = variants.reduce((min, variant) => {
+    const price = parseFloat(variant.price);
+    if (!Number.isFinite(price) || price < 0) return min;
+    return Math.min(min, price);
+  }, Number.POSITIVE_INFINITY);
+
+  const addVariant = () => {
+    setVariants((prev) => [...prev, emptyVariant()]);
+  };
+
+  const removeVariant = (index: number) => {
+    if (variants.length <= 1) {
+      toast.warning('Vous devez garder au moins une variante');
+      return;
+    }
+    setVariants((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateVariant = (index: number, field: keyof Variant, value: string) => {
+    setVariants((prev) => prev.map((variant, i) => (
+      i === index ? { ...variant, [field]: value } : variant
+    )));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.channelId) { toast.warning('Sélectionnez un salon Discord'); return; }
-    if (!form.accountCount || parseInt(form.accountCount, 10) < 1) {
-      toast.warning('Indiquez un nombre de comptes disponible');
+    if (!form.channelId) {
+      toast.warning('Sélectionnez un salon Discord');
       return;
     }
-    if (!form.priceFrom) { toast.warning('Indiquez un prix minimum'); return; }
+
+    if (variants.length === 0) {
+      toast.warning('Ajoutez au moins une variante');
+      return;
+    }
+
+    for (const variant of variants) {
+      if (!variant.name.trim()) {
+        toast.warning('Chaque variante doit avoir un nom');
+        return;
+      }
+      if (!variant.price || parseFloat(variant.price) < 0) {
+        toast.warning('Chaque variante doit avoir un prix');
+        return;
+      }
+      if (!variant.stock || parseInt(variant.stock, 10) < 0) {
+        toast.warning('Chaque variante doit avoir un stock');
+        return;
+      }
+    }
+
+    if (totalVariantStock < 1) {
+      toast.warning('Le stock total doit être supérieur à 0');
+      return;
+    }
 
     setSending(true);
     try {
@@ -76,9 +134,14 @@ export default function RestockPage() {
         channelId: form.channelId,
         title: form.title,
         description: form.description,
-        priceFrom: parseFloat(form.priceFrom),
+        priceFrom: Number.isFinite(priceFrom) ? priceFrom : 0,
         imageUrl: form.imageUrl || undefined,
-        accountCount: parseInt(form.accountCount, 10),
+        accountCount: totalVariantStock,
+        variants: variants.map((variant) => ({
+          name: variant.name.trim(),
+          price: parseFloat(variant.price),
+          stock: parseInt(variant.stock, 10),
+        })),
       });
       toast.success('Restock envoyé sur Discord !');
       await fetchData();
@@ -93,13 +156,12 @@ export default function RestockPage() {
     <div>
       <Header
         title="Restock Discord"
-        subtitle="Envoyer un message de restock sur Discord"
+        subtitle="Créer un restock avec plusieurs variantes"
         onMenuToggle={onMenuToggle}
       />
 
       <div className="p-4 lg:p-8">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Form */}
           <div className="space-y-6">
             <Card>
               <h3 className="text-lg font-semibold text-white mb-4">Configuration du restock</h3>
@@ -111,38 +173,88 @@ export default function RestockPage() {
                   onChange={(e) => setForm({ ...form, channelId: e.target.value })}
                   placeholder="Sélectionner un salon..."
                 />
+
                 <Input
                   label="Titre"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="NOUVEAU RESTOCK"
+                  placeholder="FA Fortnite Accounts Restocked"
                 />
+
                 <Textarea
                   label="Description"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="De nouveaux comptes sont disponibles !"
+                  placeholder="Our product FA Fortnite Accounts has just been restocked!"
                 />
-                <Input
-                  label="Nombre de comptes disponibles"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={form.accountCount}
-                  onChange={(e) => setForm({ ...form, accountCount: e.target.value })}
-                  placeholder={loading ? 'Chargement...' : String(accountCount)}
-                />
-                <p className="text-xs text-dark-500 -mt-2">
-                  Stock actuellement disponible : <span className="text-brand-400 font-semibold">{accountCount}</span> comptes
-                </p>
-                <Input
-                  label="Prix à partir de (€)"
-                  type="number"
-                  step="0.01"
-                  value={form.priceFrom}
-                  onChange={(e) => setForm({ ...form, priceFrom: e.target.value })}
-                  placeholder="10"
-                />
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold text-white">Variantes</h4>
+                      <p className="text-xs text-dark-500 mt-1">Ajoutez autant de variantes que nécessaire.</p>
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" onClick={addVariant} icon={<Plus className="w-4 h-4" />}>
+                      Ajouter
+                    </Button>
+                  </div>
+
+                  {variants.map((variant, index) => (
+                    <div key={index} className="rounded-xl border border-white/10 bg-dark-900/40 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-white">Variante {index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeVariant(index)}
+                          className="p-1.5 rounded-lg text-dark-400 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                          title="Supprimer la variante"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <Input
+                        label="Nom de la variante"
+                        value={variant.name}
+                        onChange={(e) => updateVariant(index, 'name', e.target.value)}
+                        placeholder="50-100 Skins [ OG Outfits Included ] | Fortnite Accounts"
+                      />
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          label="Prix (€)"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={variant.price}
+                          onChange={(e) => updateVariant(index, 'price', e.target.value)}
+                          placeholder="50"
+                        />
+                        <Input
+                          label="Stock"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={variant.stock}
+                          onChange={(e) => updateVariant(index, 'stock', e.target.value)}
+                          placeholder="17"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-brand-500/20 bg-brand-500/5 p-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-dark-300">Stock total du restock</span>
+                    <span className="font-bold text-brand-400">{totalVariantStock} comptes</span>
+                  </div>
+                  <div className="flex justify-between text-xs mt-2">
+                    <span className="text-dark-500">Stock disponible en base</span>
+                    <span className="text-dark-300">{loading ? '...' : accountCount} comptes</span>
+                  </div>
+                </div>
+
                 <Input
                   label="URL de l'image/bannière (optionnel)"
                   value={form.imageUrl}
@@ -151,34 +263,50 @@ export default function RestockPage() {
                 />
 
                 <Button type="submit" loading={sending} className="w-full" icon={<Send className="w-4 h-4" />}>
-                  Envoyer le restock ({form.accountCount || 0} comptes)
+                  Envoyer le restock ({totalVariantStock} comptes)
                 </Button>
               </form>
             </Card>
           </div>
 
-          {/* Preview */}
           <div className="space-y-6">
             <Card className="border-brand-600/20">
               <div className="flex items-center gap-2 mb-4">
                 <Eye className="w-4 h-4 text-brand-400" />
                 <h3 className="text-sm font-semibold text-dark-300">Aperçu Discord</h3>
               </div>
-              <div className="bg-[#2b2d31] rounded-xl p-4 border-l-4 border-emerald-500">
-                <p className="text-emerald-400 font-bold text-sm mb-2">🟢 {form.title || 'NOUVEAU RESTOCK'}</p>
-                <p className="text-[#b5bac1] text-xs italic mb-3">{form.description || 'De nouveaux comptes sont disponibles !'}</p>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div>
-                    <p className="text-[#949ba4] text-xs font-semibold">📦 Comptes disponibles</p>
-                    <p className="text-white text-sm font-bold">{form.accountCount || '0'}</p>
-                  </div>
-                  <div>
-                    <p className="text-[#949ba4] text-xs font-semibold">💰 Prix à partir de</p>
-                    <p className="text-white text-sm font-bold">{form.priceFrom || '0'}€</p>
-                  </div>
+
+              <div className="bg-[#1e2230] rounded-xl p-4 border-l-4 border-cyan-400">
+                <p className="text-cyan-300 font-bold text-sm mb-2">{form.title || 'FA Fortnite Accounts Restocked'}</p>
+                <p className="text-[#d1d5db] text-xs mb-3">
+                  {form.description || 'Our product FA Fortnite Accounts has just been restocked!'}
+                </p>
+                <p className="text-[#7dd3fc] text-xs mb-4">Buy Now</p>
+
+                <div className="space-y-3">
+                  {variants.map((variant, index) => (
+                    <div key={index}>
+                      <p className="text-white text-xs font-bold mb-1">Variant</p>
+                      <p className="text-[#d1d5db] text-xs pr-2 mb-1">{variant.name || 'Nom de la variante'}</p>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <span className="text-white font-bold">Price</span>
+                        <span className="text-white font-bold">Stock</span>
+                        <span />
+                        <span className="text-[#d1d5db]">{variant.price ? `$${parseFloat(variant.price).toFixed(2)}` : '$0.00'}</span>
+                        <span className="text-[#d1d5db]">{variant.stock || '0'}</span>
+                        <span />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <p className="text-[#949ba4] text-xs font-semibold mb-1">🛒 Comment acheter ?</p>
-                <p className="text-[#b5bac1] text-xs">Ouvrez un ticket dans la catégorie <strong>Acheter un compte FN</strong>.</p>
+
+                {form.imageUrl && (
+                  <img
+                    src={form.imageUrl}
+                    alt="Aperçu bannière"
+                    className="w-full mt-4 rounded-lg object-cover max-h-56"
+                  />
+                )}
               </div>
             </Card>
 
