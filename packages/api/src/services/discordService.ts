@@ -8,9 +8,6 @@ import { COLORS } from '@pureskin/shared';
 
 let client: Client | null = null;
 
-/**
- * Initialize Discord client for API-side operations
- */
 export async function initDiscordClient(): Promise<Client> {
   if (client?.isReady()) return client;
 
@@ -19,7 +16,7 @@ export async function initDiscordClient(): Promise<Client> {
   });
 
   await client.login(config.discordToken);
-  
+
   return new Promise((resolve) => {
     client!.once('ready', () => {
       console.log('✅ Discord client (API) ready');
@@ -28,23 +25,17 @@ export async function initDiscordClient(): Promise<Client> {
   });
 }
 
-/**
- * Get Discord client instance
- */
 export function getDiscordClient(): Client | null {
   return client;
 }
 
-/**
- * Get text channels from the configured guild
- */
 export async function getGuildChannels() {
   const c = await initDiscordClient();
   const guild = await c.guilds.fetch(config.guildId);
   const channels = await guild.channels.fetch();
-  
+
   return channels
-    .filter((ch) => ch !== null && ch.type === 0) // Text channels only
+    .filter((ch) => ch !== null && ch.type === 0)
     .map((ch) => ({
       id: ch!.id,
       name: ch!.name,
@@ -52,9 +43,12 @@ export async function getGuildChannels() {
     }));
 }
 
-/**
- * Send a restock embed to a Discord channel
- */
+type RestockVariant = {
+  name: string;
+  price: number;
+  stock: number;
+};
+
 export async function sendRestockEmbed(data: {
   channelId: string;
   title: string;
@@ -62,38 +56,48 @@ export async function sendRestockEmbed(data: {
   priceFrom: number;
   accountCount: number;
   imageUrl?: string;
+  variants?: RestockVariant[];
 }): Promise<string | null> {
   const c = await initDiscordClient();
   const channel = await c.channels.fetch(data.channelId);
-  
+
   if (!channel || !(channel instanceof TextChannel)) {
     throw new Error('Channel introuvable ou non textuel');
   }
 
   const embed = new EmbedBuilder()
     .setColor(COLORS.RESTOCK)
-    .setTitle(`🟢 ${data.title}`)
-    .setDescription(data.description || '> De nouveaux comptes sont disponibles !')
-    .addFields(
-      { name: '📦 Comptes disponibles', value: `**${data.accountCount}**`, inline: true },
-      { name: '💰 Prix à partir de', value: `**${data.priceFrom}€**`, inline: true },
+    .setTitle(data.title || 'FA Fortnite Accounts Restocked')
+    .setDescription(data.description || 'Our product **FA Fortnite Accounts** has just been restocked!\n[Buy Now](https://discord.com)');
+
+  if (data.variants?.length) {
+    for (const variant of data.variants) {
+      embed.addFields(
+        { name: 'Variant', value: variant.name || 'Sans nom', inline: false },
+        { name: 'Price', value: `$${variant.price.toFixed(2)}`, inline: true },
+        { name: 'Stock', value: String(variant.stock), inline: true },
+        { name: '\u200b', value: '\u200b', inline: true },
+      );
+    }
+  } else {
+    embed.addFields(
+      { name: 'Variant', value: 'Fortnite Accounts', inline: false },
+      { name: 'Price', value: `$${data.priceFrom.toFixed(2)}`, inline: true },
+      { name: 'Stock', value: String(data.accountCount), inline: true },
       { name: '\u200b', value: '\u200b', inline: true },
-      { 
-        name: '🛒 Comment acheter ?', 
-        value: 'Ouvrez un ticket dans la catégorie **Acheter un compte FN**.' 
-      }
-    )
-    .setTimestamp()
-    .setFooter({ text: 'PureSkin Store — Restock' });
+    );
+  }
 
   if (data.imageUrl) {
     embed.setImage(data.imageUrl);
   }
 
+  embed.setFooter({ text: 'PureSkin Store' });
+
   const button = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('open_ticket_buy')
-      .setLabel('🛒 Acheter')
+      .setLabel('🛒 Buy Now')
       .setStyle(ButtonStyle.Success)
   );
 
@@ -101,9 +105,6 @@ export async function sendRestockEmbed(data: {
   return message.id;
 }
 
-/**
- * Send a log message to the configured log channel
- */
 export async function sendLogToDiscord(data: {
   title: string;
   description: string;
@@ -114,7 +115,7 @@ export async function sendLogToDiscord(data: {
   try {
     const c = await initDiscordClient();
     const channel = await c.channels.fetch(config.logChannelId);
-    
+
     if (!channel || !(channel instanceof TextChannel)) return;
 
     const embed = new EmbedBuilder()
