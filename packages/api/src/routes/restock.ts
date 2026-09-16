@@ -22,7 +22,7 @@ const createRestockSchema = z.object({
   description: z.string().max(2000).optional(),
   priceFrom: z.number().min(0),
   imageUrl: z.string().url().optional().or(z.literal('')),
-  accountIds: z.array(z.string()).min(1),
+  accountCount: z.number().int().min(1),
 });
 
 /**
@@ -37,7 +37,7 @@ router.post(
   validateBody(createRestockSchema),
   async (req: Request, res: Response) => {
     try {
-      const { channelId, title, description, priceFrom, imageUrl, accountIds } = req.body;
+      const { channelId, title, description, priceFrom, imageUrl, accountCount } = req.body;
 
       // Send Discord embed
       const messageId = await discordService.sendRestockEmbed({
@@ -45,7 +45,7 @@ router.post(
         title: title || 'NOUVEAU RESTOCK',
         description,
         priceFrom,
-        accountCount: accountIds.length,
+        accountCount,
         imageUrl: imageUrl || undefined,
       });
 
@@ -56,7 +56,7 @@ router.post(
         description,
         priceFrom,
         imageUrl: imageUrl || undefined,
-        accountIds,
+        accountCount,
         creatorId: req.user!.userId,
         messageId: messageId || undefined,
       });
@@ -65,9 +65,9 @@ router.post(
       await createLog({
         action: 'RESTOCK_SENT',
         userId: req.user!.userId,
-        details: { 
-          restockId: restock.id, 
-          accountCount: accountIds.length, 
+        details: {
+          restockId: restock.id,
+          accountCount,
           priceFrom,
           channelId,
         },
@@ -77,7 +77,7 @@ router.post(
       // Discord log
       await discordService.sendLogToDiscord({
         title: '📦 Restock envoyé',
-        description: `**${accountIds.length}** comptes • À partir de **${priceFrom}€**\nPar <@${req.user!.discordId}>`,
+        description: `**${accountCount}** comptes • À partir de **${priceFrom}€**\nPar <@${req.user!.discordId}>`,
         color: COLORS.RESTOCK,
       });
 
@@ -92,6 +92,20 @@ router.post(
     }
   }
 );
+
+/**
+ * GET /api/restock/available-count
+ * Get the current number of available accounts.
+ */
+router.get('/available-count', authenticate, requireOwner, async (_req: Request, res: Response) => {
+  try {
+    const count = await restockService.getAvailableAccountCount();
+    res.json({ success: true, data: { count } });
+  } catch (error) {
+    console.error('❌ Get available account count error:', error);
+    res.status(500).json({ success: false, error: 'Erreur lors de la récupération du stock disponible' });
+  }
+});
 
 /**
  * GET /api/restock
