@@ -6,6 +6,9 @@ import { prisma } from '@pureskin/database';
 
 /**
  * Create a restock entry
+ *
+ * A restock now stores the number of available accounts rather than
+ * requiring individual account IDs / RestockAccount relations.
  */
 export async function createRestock(data: {
   channelId: string;
@@ -13,7 +16,7 @@ export async function createRestock(data: {
   description?: string;
   priceFrom: number;
   imageUrl?: string;
-  accountIds: string[];
+  accountCount: number;
   creatorId: string;
   messageId?: string;
 }) {
@@ -24,21 +27,22 @@ export async function createRestock(data: {
       description: data.description,
       priceFrom: data.priceFrom,
       imageUrl: data.imageUrl,
-      accountCount: data.accountIds.length,
+      accountCount: data.accountCount,
       creatorId: data.creatorId,
       messageId: data.messageId,
-      accounts: {
-        create: data.accountIds.map((accountId) => ({
-          accountId,
-        })),
-      },
     },
     include: {
       creator: true,
-      accounts: {
-        include: { account: true },
-      },
     },
+  });
+}
+
+/**
+ * Get the current number of available accounts.
+ */
+export async function getAvailableAccountCount() {
+  return prisma.account.count({
+    where: { status: 'AVAILABLE' },
   });
 }
 
